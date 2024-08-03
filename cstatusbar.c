@@ -264,7 +264,7 @@ void *timer(void *args) {
     struct tm *local;
     unsigned int nvalue, pos, tmp = 0;
     char ssid[64];
-    char weekday[] = "000\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u65e5";
+    char weekday[] = "\u65e5\u4e00\u4e8c\u4e09\u56db\u4e94\u516d";
     char batt[] = "\uf244\uf243\uf242\uf241\uf240";
     char batc[] = "006699ccdd";
     char wlant[] = "0000^󰕑dd00^󰞉";
