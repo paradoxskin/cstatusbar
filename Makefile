@@ -1,5 +1,6 @@
-CC = gcc
-CFLAGS = -std=c99 -pedantic -Wall -Os
+CC = cc
+CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L
+CFLAGS = -std=c99 -pedantic -Wall -Os ${CPPFLAGS}
 LIBS = -lX11
 BINDIR = /usr/local/bin/
 TARGET = cstatusbar

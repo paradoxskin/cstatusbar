@@ -1,2 +1,4 @@
 *.o
 cstatusbar
+.cache/*
+compile_commands.json
