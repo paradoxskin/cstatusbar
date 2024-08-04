@@ -157,13 +157,15 @@ void *fifo(void *args) {
     Option *hook = options[3];
     Option *todo = options[4];
     Option *beast = options[5];
+    Option *beast_mask = options[6];
 
     strcpy(light->status, "^c#ffff99^00 ");
     strcpy(volumn->status, "^c#a8c8ff^00 ");
     strcpy(fcitx->status, "^c#443326^ ");
     strcpy(hook->status, "^c#ffffff^ ");
     strcpy(todo->status, "^c#00bbbb^ ");
-    strcpy(beast->status, "^c#777777^  ");
+    strcpy(beast->status, "^c#a77777^  ");
+    strcpy(beast_mask->status, "^b#a73333^^d^");
 
     int fd;
     char buffer[1024];
@@ -230,6 +232,16 @@ void *fifo(void *args) {
                         }
                         break;
                     case 'B':
+                        if (value[0] == '0') {
+                            strcpy(beast->status + 5, "7777^\uf204  ");
+                        }
+                        else if (value[0] == '2') {
+                            beast_mask->status[10] = '^';
+                        }
+                        else {
+                            strcpy(beast->status + 5, "3333^\uf205  ");
+                            beast_mask->status[10] = '\0';
+                        }
                         break;
                     default:
                         break;
@@ -257,7 +269,7 @@ void *timer(void *args) {
     Option *wlan = options[2];
 
     strcpy(clock->status, " 00:00 ^b#8b8feb^^c#443326^零^d^");
-    strcpy(battery->status, "^c#aa0000^\uf244 ^d^");
+    strcpy(battery->status, "^c#aa0000^\uf244 ^c#bbbbbb^");
     strcpy(wlan->status, "^c#aa0000^󰕑 ");
 
     time_t now;
@@ -286,14 +298,14 @@ void *timer(void *args) {
                 memcpy(battery->status +10, "\uf492", 3);
                 nvalue &= 0x7f;
                 for (tmp = 100; nvalue/tmp == 0; tmp/=10);
-                for (pos = 17; tmp; tmp/=10, pos+=1) battery->status[pos] = '0' + nvalue /tmp %10;
+                for (pos = 24; tmp; tmp/=10, pos+=1) battery->status[pos] = '0' + nvalue /tmp %10;
                 battery->status[pos] = '\0';
                 nvalue = (nvalue +5)/25;
             }
             else {
                 battery->status[3] = 'a';
                 battery->status[4] = 'a';
-                battery->status[17] = '\0';
+                battery->status[24] = '\0';
                 nvalue = (nvalue +5)/25;
                 memcpy(battery->status +10, batt +3*nvalue, 3);
             }
@@ -350,13 +362,14 @@ int main() {
     Option *wlan = genoption();
     Option *todo = genoption();
     Option *hook = genoption();
+    Option *beast_mask = genoption();
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&cond, NULL);
     draw = 0;
     running = 1;
 
     // args
-    Option* arg_fifo[6] = {light, volumn, fcitx, hook, todo, beast};
+    Option* arg_fifo[7] = {light, volumn, fcitx, hook, todo, beast, beast_mask};
     Option* arg_timer[3] = {time, battery, wlan};
 
     // thread
