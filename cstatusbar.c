@@ -111,6 +111,9 @@ unsigned int getbattery() {
         bat = (unsigned int)cur * 100 / full;
         if (strcmp(st, "Charging") == 0) bat |= 1 << 7;
     }
+    else {
+        bat = 1 << 8 | 0x50;
+    }
     return bat;
 }
 
@@ -292,7 +295,17 @@ void *timer(void *args) {
         nvalue = getbattery();
         if (battery->value != nvalue) {
             battery->value = nvalue;
-            if (nvalue >> 7) { // charge
+            if (nvalue >> 8) { // bat not found
+                battery->status[3] = 'f';
+                battery->status[4] = 'f';
+                memcpy(battery->status +10, "\ueb2d", 3);
+                nvalue &= 0x7f;
+                for (tmp = 100; nvalue/tmp == 0; tmp/=10);
+                for (pos = 24; tmp; tmp/=10, pos+=1) battery->status[pos] = '*';
+                battery->status[pos] = '\0';
+                nvalue = (nvalue +5)/25;
+            }
+            else if (nvalue >> 7) { // charge
                 battery->status[3] = 'f';
                 battery->status[4] = 'f';
                 memcpy(battery->status +10, "\uf492", 3);
