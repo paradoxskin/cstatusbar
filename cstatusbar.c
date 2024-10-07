@@ -13,9 +13,6 @@
 
 #include "config.h"
 
-#define BAD(WORD) fprintf(stderr, WORD);exit(1);
-#define ENDOFSTORY(WORD) {BAD(WORD)}
-
 typedef struct Option Option;
 
 struct Option {
@@ -47,10 +44,16 @@ static unsigned int isonline();
 
 // imf
 void sendreq() {
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] try to get lock\n");
     pthread_mutex_lock(&lock);
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] get lock\n");
     draw = 1;
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] send cond\n");
     pthread_cond_signal(&cond);
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] send cond done\n");
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] try to release lock\n");
     pthread_mutex_unlock(&lock);
+    LOG(LOG_LEVEL_DEBUG, "[sendreq] release lock\n");
 }
 
 void *drawer(void *args) {
@@ -61,6 +64,7 @@ void *drawer(void *args) {
             pthread_cond_wait(&cond, &lock);
         }
 
+        LOG(LOG_LEVEL_DEBUG, "[drawer] try to draw\n");
         while (draw) {
             clock_gettime(CLOCK_REALTIME, &timeout);
             timeout.tv_nsec += 300000000;
@@ -68,10 +72,14 @@ void *drawer(void *args) {
                 timeout.tv_sec += 1;
                 timeout.tv_nsec -= 1000000000;
             }
+            LOG(LOG_LEVEL_DEBUG, "[drawer] wait to draw\n");
             if (pthread_cond_timedwait(&cond, &lock, &timeout) == ETIMEDOUT) {
                 echo(otos());
                 draw = 0;
+                LOG(LOG_LEVEL_DEBUG, "[drawer] draw done\n");
+                break;
             }
+            LOG(LOG_LEVEL_DEBUG, "[drawer] still wait to draw\n");
         }
         pthread_mutex_unlock(&lock);
     }
@@ -79,14 +87,14 @@ void *drawer(void *args) {
 }
 
 void echo(const char *text) {
-    if (XStoreName(dpy, DefaultRootWindow(dpy), text) < 0) ENDOFSTORY("Write failed.")
+    if (XStoreName(dpy, DefaultRootWindow(dpy), text) < 0) LOG(LOG_LEVEL_ERROR, "Write failed.\n");
     XFlush(dpy);
 }
 
 Option *genoption() {
     Option *o = NULL;
     o = calloc(1, sizeof(Option));
-    if (o == NULL) ENDOFSTORY("Calloc memery error.")
+    if (o == NULL) LOG(LOG_LEVEL_ERROR, "Calloc memery error.\n");
     o->next = status;
     status = o;
     return o;
@@ -176,10 +184,11 @@ void *fifo(void *args) {
     unsigned int len, nvui, tmp;
     char key;
     char value[MAXCC];
+    LOG(LOG_LEVEL_DEBUG, "[fifo] start handle.\n");
 
     while (running) {
         fd = open(FIFO, O_RDONLY);
-        if (fd == -1) ENDOFSTORY("Fifo not found.");
+        if (fd == -1) LOG(LOG_LEVEL_ERROR, "Fifo not found.\n");
         len = read(fd, buffer, sizeof(buffer));
         for (tmp = 0; tmp < len; tmp++) {
             if (half) {
@@ -188,6 +197,7 @@ void *fifo(void *args) {
                     continue;
                 }
                 value[pos] = '\0';
+                LOG(LOG_LEVEL_DEBUG, "[fifo] read %c -> %s\n", key, value);
                 switch (key) {
                     case 'H':
                         if (pos == 0) strcpy(hook->status +10, "\ue007 ");
@@ -250,7 +260,9 @@ void *fifo(void *args) {
                         break;
                 }
                 half = 0;
+                LOG(LOG_LEVEL_DEBUG, "[fifo] send %c -> %s\n", key, value);
                 sendreq();
+                LOG(LOG_LEVEL_DEBUG, "[fifo] send %c -> %s done\n", key, value);
                 continue;
             }
             if (buffer[tmp] == ';') {
@@ -283,7 +295,7 @@ void *timer(void *args) {
     char batt[] = "\uf244\uf243\uf242\uf241\uf240";
     char batc[] = "006699ccdd";
     char wlant[] = "0000^󰕑dd00^󰞉";
-
+    LOG(LOG_LEVEL_DEBUG, "[timer] start run\n");
     while (running) {
         time(&now);
         local = localtime(&now);
@@ -324,16 +336,24 @@ void *timer(void *args) {
             }
             memcpy(battery->status +5, batc +2*nvalue, 2);
         }
+        LOG(LOG_LEVEL_DEBUG, "[timer] echo for time\n");
         echo(otos());
+        LOG(LOG_LEVEL_DEBUG, "[timer] echo done\n");
         memcpy(wlan->status + 5, wlant + isonline() * 9, 9);
         getssid(ssid);
+        LOG(LOG_LEVEL_DEBUG, "[timer] ssid: %s", ssid);
         strcpy(wlan->status + 15, ssid);
-        for (tmp = 0, pos = strlen(ssid) - 1; pos; pos--) {
-            tmp += ssid[pos];
+        pos = strlen(ssid);
+        if (pos) {
+            for (tmp = 0, pos -= 1; pos; pos--) {
+                tmp += ssid[pos];
+            }
         }
         if (wlan->value != tmp) {
             wlan->value = tmp;
+            LOG(LOG_LEVEL_DEBUG, "[timer] send for ssid\n");
             sendreq();
+            LOG(LOG_LEVEL_DEBUG, "[timer] send for ssid done\n");
         }
 
         time(&now);
@@ -346,7 +366,7 @@ void *timer(void *args) {
 char *otos() {
     char* c = NULL;
     c = calloc(MAXCC, sizeof(char));
-    if (!c) ENDOFSTORY("Calloc memery error.")
+    if (!c) LOG(LOG_LEVEL_ERROR, "Calloc memery error.\n");
     unsigned int l = 0;
     unsigned int nl;
     Option *o = status;
@@ -363,7 +383,7 @@ char *otos() {
 
 int main() {
     dpy = XOpenDisplay(NULL);
-    if (!dpy) ENDOFSTORY("Can't open display.\n")
+    if (!dpy) LOG(LOG_LEVEL_ERROR, "Can't open display.\n");
 
     // init
     Option *fcitx = genoption();

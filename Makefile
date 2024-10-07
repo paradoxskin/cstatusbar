@@ -8,6 +8,9 @@ OBJECTS = cstatusbar.o
 
 all: $(TARGET)
 
+debug: CFLAGS+=-DDEBUG=1 -g
+debug: $(TARGET)
+
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
@@ -21,4 +24,4 @@ install: $(TARGET)
 	cp -f $(TARGET) $(BINDIR)
 	chmod 755 $(BINDIR)/$(TARGET)
 
-.PHONY: all clean install
+.PHONY: all clean install debug
