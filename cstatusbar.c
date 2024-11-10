@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include "config.h"
 
@@ -29,6 +30,9 @@ static long full;
 static short draw;
 static pthread_mutex_t lock;
 static pthread_cond_t cond;
+static char bat_now[256];
+static char bat_full[256];
+static char bat_status[256];
 
 // def
 static void echo(const char*);
@@ -105,15 +109,18 @@ unsigned int getbattery() {
     long cur = 0;
     char *st = malloc(sizeof(char)*12);
     FILE *fp = NULL;
-    if((fp = fopen(BATT_NOW, "r"))) {
+    if (strcmp(bat_now, "ukn") == 0) {
+        return 1 << 8 | 0x50;
+    }
+    if ((fp = fopen(bat_now, "r"))) {
         fscanf(fp, "%ld\n", &cur);
         fclose(fp);
         if (!full) {
-            fp = fopen(BATT_FULL, "r");
+            fp = fopen(bat_full, "r");
             fscanf(fp, "%ld\n", &full);
             fclose(fp);
         }
-        fp = fopen(BATT_STATUS, "r");
+        fp = fopen(bat_status, "r");
         fscanf(fp, "%s\n", st);
         fclose(fp);
         bat = (unsigned int)cur * 100 / full;
@@ -381,11 +388,42 @@ char *otos() {
     return c;
 }
 
+void find_bat_file() {
+    char bat_path[64] = "/sys/class/power_supply/";
+    (void)strcat(bat_path, BAT);
+    DIR *bat_dir = opendir(bat_path);
+    if (bat_dir == NULL) {
+        LOG(LOG_LEVEL_ERROR, "BAT file not found.\n");
+        return;
+    }
+    struct dirent *file;
+    while ((file = readdir(bat_dir)) != NULL) {
+        if (strcmp(file->d_name, "charge_full") == 0) {
+            snprintf(bat_full, sizeof(bat_full), "%s/charge_full", bat_path);
+            snprintf(bat_now, sizeof(bat_now), "%s/charge_now", bat_path);
+            snprintf(bat_status, sizeof(bat_status), "%s/status", bat_path);
+        }
+        else if (strcmp(file->d_name, "energy_full") == 0) {
+            snprintf(bat_full, sizeof(bat_full), "%s/energy_full", bat_path);
+            snprintf(bat_now, sizeof(bat_now), "%s/energy_now", bat_path);
+            snprintf(bat_status, sizeof(bat_status), "%s/status", bat_path);
+        }
+    }
+    if (strlen(bat_full) == 0) {
+        LOG(LOG_LEVEL_ERROR, "UNKNOW BAT TYPE\n");
+        strcpy(bat_now, "ukn");
+    }
+}
+
 int main() {
     dpy = XOpenDisplay(NULL);
-    if (!dpy) LOG(LOG_LEVEL_ERROR, "Can't open display.\n");
+    if (!dpy) {
+        LOG(LOG_LEVEL_ERROR, "Can't open display.\n");
+        return 1;
+    }
 
     // init
+    find_bat_file();
     Option *fcitx = genoption();
     Option *time = genoption();
     Option *battery = genoption();
